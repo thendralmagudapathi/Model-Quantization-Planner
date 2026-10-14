@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Model Quantization Planner</title>
+  <meta name="description" content="Pick the right quantized version of an open-weight LLM: size of every format, GPU fit, ready-made versions and measured precision loss — privately in your browser." />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co http://localhost:* http://127.0.0.1:* https: http:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+  <meta name="referrer" content="no-referrer" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M6 24h5v-4h5v-6h5V8h5' stroke='white' stroke-width='2.4' fill='none'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#planner">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#2563eb"/><path d="M6 24h5v-4h5v-6h5V8h5" stroke="#fff" stroke-width="2.4" fill="none"/></svg>
+      <span>Model Quantization Planner</span>
+    </a>
+    <nav>
+      <a href="#planner">Planner</a>
+      <a href="#about">What is this tool for?</a>
+      <a href="#howto">How to use it</a>
+      <a href="#maths">How the maths works</a>
+      <a href="#glossary">Glossary</a>
+    </nav>
+  </header>
+
+  <!-- ================= PLANNER ================= -->
+  <section id="planner" class="planner">
+    <div class="hero">
+      <div>
+        <h1>Which quantized version of this model should I run?</h1>
+        <p class="pitch">Don't guess — measure your model's quantization trade-offs in seconds, privately in your browser.</p>
+      </div>
+      <div class="privacy-badge" data-tip="Everything is calculated on your computer, in this browser tab.&#10;&#10;• Files you open are read here and never sent anywhere.&#10;• Your Hugging Face token is kept only in this tab's memory: never saved, logged or put in a link.&#10;• The only network requests go to the model source you choose (huggingface.co, a link you paste, or a server on your own computer).&#10;• Only small pieces of the weight files are read — never a whole model.">
+        <span class="lock"></span> Runs 100% in your browser. Nothing is uploaded.<i class="tip-i">?</i>
+      </div>
+    </div>
+
+    <!-- ---------- Import ---------- -->
+    <section class="card-panel import-panel" id="import-panel">
+      <div class="panel-title">
+        <h2 data-tip="Step 1: tell the tool which model you are planning for.&#10;Every option ends in the same model summary, so all the features below work the same way.&#10;Options that give more detail (Hugging Face, a weight file) unlock more features.">1 · Load a model<i class="tip-i">?</i></h2>
+        <span class="muted small" id="net-badge" data-tip="Every network request this page has made, and where to.&#10;It only ever talks to the model source you picked.">Network: 0 requests</span>
+      </div>
+      <label class="smart" data-tip="Paste anything here and the tool picks the right option for you:&#10;• org/name or a huggingface.co link → Hugging Face model&#10;• text starting with { → config.json&#10;• a link ending in .safetensors, .gguf or .json → Direct file link&#10;• a size like 8B or 70B → Enter details manually">
+        <span>Quick start — paste a model ID, link, size or config.json<i class="tip-i">?</i></span>
+        <input id="smart-box" type="text" placeholder="e.g. Qwen/Qwen2.5-7B-Instruct, https://huggingface.co/…, 70B, or { &quot;hidden_size&quot;: … }" autocomplete="off" spellcheck="false" />
+      </label>
+
+      <fieldset class="sources" id="sources">
+        <legend data-tip="Where the model information comes from. Pick one, fill in the box that appears, then press Import.">How do you want to load the model?<i class="tip-i">?</i></legend>
+        <label class="src" data-tip="Recommended. Type a model ID like Qwen/Qwen2.5-7B-Instruct or paste its huggingface.co link.&#10;The tool reads the model's details from huggingface.co and can read small samples of the real weights."><input type="radio" name="src" value="hf" checked /> Hugging Face model <span class="muted">(ID or link — recommended)</span></label>
+        <label class="src" data-tip="Open .safetensors, .gguf, config.json or model.safetensors.index.json files from your computer. You can pick several at once.&#10;Only the small header (and later small samples) are read. The file stays on your device."><input type="radio" name="src" value="file" /> File on my computer <span class="muted">(.safetensors, .gguf, config.json — stays on your device)</span></label>
+        <label class="src" data-tip="A direct https:// link to a .safetensors, .gguf or config.json file.&#10;The server must allow browser access (CORS) and partial downloads (Range requests)."><input type="radio" name="src" value="url" /> Direct file link <span class="muted">(URL to a .safetensors / .gguf / config.json)</span></label>
+        <label class="src" data-tip="Ask a model server running on your own computer (Ollama, LM Studio or vLLM) which models it has.&#10;Gives less detail: name, size and current quantization."><input type="radio" name="src" value="local" /> Local model server <span class="muted">(Ollama / LM Studio / vLLM on your computer)</span></label>
+        <label class="src" data-tip="Paste the text of a model's config.json. The tool works out the parameter count from it."><input type="radio" name="src" value="config" /> Paste config.json</label>
+        <label class="src" data-tip="Just type the parameter count (e.g. 8B or 70B). Enough for the size table, GPU fit and the precision-loss charts."><input type="radio" name="src" value="manual" /> Enter details manually</label>
+      </fieldset>
+
+      <div class="src-body" data-for="hf">
+        <div class="field-row wide">
+          <label class="field" data-tip="The model's ID on huggingface.co (organisation/name), or any link to its page.&#10;Links with /tree/&lt;branch&gt; use that branch or commit.&#10;Example: Qwen/Qwen2.5-0.5B-Instruct"><span>Model ID or link<i class="tip-i">?</i></span>
+            <input id="hf-id" type="text" placeholder="Qwen/Qwen2.5-0.5B-Instruct" autocomplete="off" spellcheck="false" /></label>
+          <label class="field" data-tip="Only needed for gated or private models (like Llama). Create a read token at huggingface.co → Settings → Access Tokens.&#10;&#10;Kept only in this browser tab's memory. It is never saved, logged, put in a link or included in exports. It is sent only to huggingface.co."><span>Access token <i>optional, for gated models</i><i class="tip-i">?</i></span>
+            <input id="hf-token" type="password" placeholder="hf_…  (kept only in this tab)" autocomplete="off" spellcheck="false" /></label>
+        </div>
+        <div class="examples" id="hf-examples"></div>
+      </div>
+      <div class="src-body" data-for="file" hidden>
+        <div class="dropzone" id="dropzone" tabindex="0" data-tip="Drop files here, or click to choose them.&#10;You can pick several: e.g. config.json plus all .safetensors shards.&#10;Only the parts that are needed are read (with File.slice). Nothing leaves your computer.">
+          <b>Open file (stays on your device)</b>
+          <span class="muted">Drop .safetensors / .gguf / config.json / index.json here, or click to choose. Several files at once is fine.</span>
+          <span id="file-list" class="small"></span>
+        </div>
+        <input id="file-input" type="file" multiple accept=".safetensors,.gguf,.json,application/json" hidden />
+      </div>
+      <div class="src-body" data-for="url" hidden>
+        <label class="field" data-tip="A link straight to a file, e.g. https://example.com/model.safetensors.&#10;For sharded models, link to model.safetensors.index.json.&#10;The server must allow cross-origin (CORS) Range requests; Hugging Face links work."><span>File link<i class="tip-i">?</i></span>
+          <input id="url-input" type="url" placeholder="https://…/model.safetensors" autocomplete="off" spellcheck="false" /></label>
+      </div>
+      <div class="src-body" data-for="local" hidden>
+        <div class="field-row wide">
+          <label class="field" data-tip="Address of the model server on your computer.&#10;Ollama: http://localhost:11434&#10;LM Studio: http://localhost:1234&#10;vLLM: http://localhost:8000"><span>Server address<i class="tip-i">?</i></span>
+            <input id="local-url" type="url" value="http://localhost:11434" autocomplete="off" spellcheck="false" /></label>
+          <label class="field" data-tip="Press Import once to list the server's models, then pick one here and press Import again."><span>Model<i class="tip-i">?</i></span>
+            <select id="local-model"><option value="">(press Import to list models)</option></select></label>
+        </div>
+        <div class="note small" id="local-help"></div>
+      </div>
+      <div class="src-body" data-for="config" hidden>
+        <label class="field" data-tip="Paste the full text of config.json from the model's repository.&#10;The tool reads hidden_size, num_hidden_layers, num_attention_heads, intermediate_size, vocab_size and (for MoE) the expert settings."><span>config.json<i class="tip-i">?</i></span>
+          <textarea id="config-input" rows="6" spellcheck="false" placeholder='{ "hidden_size": 4096, "num_hidden_layers": 32, … }'></textarea></label>
+      </div>
+      <div class="src-body" data-for="manual" hidden>
+        <div class="field-row four">
+          <label class="field" data-tip="Total number of parameters (weights). You can type 8B, 70B, 1.5e9, 350M or 7,241,732,096."><span>Parameters<i class="tip-i">?</i></span><input id="man-params" type="text" placeholder="8B" autocomplete="off" /></label>
+          <label class="field" data-tip="The data type the original weights are stored in. Most new models are BF16."><span>Original data type<i class="tip-i">?</i></span>
+            <select id="man-dtype"><option>BF16</option><option>FP16</option><option>FP32</option><option>FP8</option></select></label>
+          <label class="field" data-tip="Optional. Number of transformer layers (blocks). Shown in the overview."><span>Layers <i>optional</i><i class="tip-i">?</i></span><input id="man-layers" type="number" min="1" step="1" placeholder="32" /></label>
+          <label class="field" data-tip="Optional. Width of the model (hidden_size). Used for the INT8 per-channel scale size."><span>Hidden size <i>optional</i><i class="tip-i">?</i></span><input id="man-hidden" type="number" min="1" step="1" placeholder="4096" /></label>
+        </div>
+      </div>
+
+      <div class="import-actions">
+        <button id="btn-import" class="primary big" data-tip="Load the model information from the option you picked.&#10;Only small files (config, headers) are read.">Import</button>
+        <button id="btn-cancel" hidden data-tip="Stop what is running now.">Cancel</button>
+        <div class="progress" id="import-progress" hidden><span></span></div>
+        <span class="small muted" id="import-status"></span>
+      </div>
+      <div id="import-msg"></div>
+      <p class="small muted api-note" data-tip="Models like GPT-4, Claude or Gemini are only available through an API. Their weights are not public, so there is nothing to download or quantize.">ⓘ API-only models can't be downloaded or quantized — this tool is for open-weight models.</p>
+    </section>
+
+    <!-- ---------- Results after import ---------- -->
+    <div id="model-results" hidden>
+      <section class="card-panel" id="overview"></section>
+      <section class="card-panel" id="sizes"></section>
+      <section class="card-panel" id="readymade" hidden></section>
+    </div>
+
+    <!-- ---------- Precision-loss explorer ---------- -->
+    <section class="card-panel explorer-panel" id="explorer">
+      <div class="panel-title">
+        <h2 data-tip="See what quantization does to the numbers inside a layer.&#10;Pick weights (generated or real), pick a format, and every chart and number updates.&#10;&#10;Weight error is a strong hint, not a measure of answer quality: a model with small weight error usually behaves well, but only an evaluation on real tasks can prove it.">2 · Precision loss explorer<i class="tip-i">?</i></h2>
+        <div class="title-actions">
+          <span class="small muted" id="calc-time" data-tip="How long the last calculation took in the background worker. The page itself never freezes."></span>
+          <select id="preset" data-tip="Ready-made starting points:&#10;• Typical LLM layer: bell-shaped weights with a few outliers, INT4 group 128.&#10;• Clean Gaussian: no outliers, INT4 per tensor.&#10;• Outlier disaster: a few huge weights wreck INT4 per tensor — then try group 128.&#10;• Compare everything: jumps to the chart that compares all formats on the same weights.">
+            <option value="">Presets…</option>
+            <option value="typical">Typical LLM layer</option>
+            <option value="clean">Clean Gaussian</option>
+            <option value="disaster">Outlier disaster</option>
+            <option value="compare">Compare everything</option>
+          </select>
+        </div>
+      </div>
+      <div class="explorer">
+        <aside class="controls" id="controls">
+          <h4 data-tip="Which numbers to quantize.&#10;Generated: random numbers shaped like a real LLM layer — always available.&#10;Real layer: a sample of an actual weight matrix from the model you loaded.">Weights<i class="tip-i">?</i></h4>
+          <div class="seg" id="wsrc">
+            <label data-tip="Random weights shaped like a typical LLM layer. Always available, nothing is downloaded."><input type="radio" name="wsrc" value="gen" checked /> Generated</label>
+            <label id="wsrc-real-label" data-tip="A sample of a real weight matrix from the model you loaded."><input type="radio" name="wsrc" value="real" /> Real layer</label>
+          </div>
+          <div id="gen-controls">
+            <label class="field" data-tip="Shape of the random numbers.&#10;• Laplace (default): peaked in the middle with longer tails — closest to real LLM weights.&#10;• Normal: the classic bell curve.&#10;• Student-t: very heavy tails, more large values."><span>Distribution<i class="tip-i">?</i></span>
+              <select id="g-dist"><option value="laplace">Laplace (typical)</option><option value="normal">Normal (Gaussian)</option><option value="student">Student-t (heavy tails)</option></select></label>
+            <label class="field" data-tip="Spread of the weights (standard deviation σ). Real LLM layers are usually around 0.01–0.05.&#10;Note: scaling all weights up or down does not change the relative error — quantization scales with them."><span>Spread σ <i id="o-sigma"></i><i class="tip-i">?</i></span><input id="g-sigma" type="range" min="0.002" max="0.1" step="0.001" value="0.02" /></label>
+            <label class="field" data-tip="How many weights to generate. More = smoother charts, a bit slower.&#10;Arranged as rows of 1,024 (like a layer with 1,024 inputs)."><span>Count <i id="o-count"></i><i class="tip-i">?</i></span><input id="g-count" type="range" min="12" max="20" step="1" value="16" /></label>
+            <label class="field" data-tip="Share of weights that are outliers — values far bigger than the rest. Real models often have a few.&#10;Example: 0.05% of 65,536 = 33 outliers."><span>Outliers <i id="o-opct"></i><i class="tip-i">?</i></span><input id="g-opct" type="range" min="0" max="2" step="0.01" value="0.02" /></label>
+            <label class="field" data-tip="How big the outliers are, as a multiple of σ.&#10;Example: 20× with σ = 0.02 → outliers around ±0.4."><span>Outlier size <i id="o-omul"></i><i class="tip-i">?</i></span><input id="g-omul" type="range" min="2" max="100" step="1" value="15" /></label>
+            <label class="field" data-tip="The random seed. The same seed always gives exactly the same weights, so results can be shared and repeated."><span>Seed<i class="tip-i">?</i></span><input id="g-seed" type="number" min="1" step="1" value="1" /></label>
+          </div>
+          <div id="real-controls" hidden>
+            <label class="field" data-tip="Type to search the model's weight tensors, then pick one.&#10;Big matrices (attention, MLP) are the ones that get quantized."><span>Tensor<i class="tip-i">?</i></span>
+              <input id="t-search" type="search" placeholder="Search tensors… e.g. layers.0.mlp" autocomplete="off" />
+              <select id="t-select" size="6"></select></label>
+            <label class="field" data-tip="How many weights to read from the tensor. They are taken as several evenly spaced blocks of whole rows, not just the first rows.&#10;Maximum 1,048,576 values."><span>Sample size<i class="tip-i">?</i></span>
+              <select id="t-sample"><option value="65536">65,536 weights</option><option value="262144">262,144 weights</option><option value="1048576">1,048,576 weights (max)</option><option value="16384">16,384 weights</option></select></label>
+            <button id="btn-load-tensor" class="primary" data-tip="Read the sample now. Only the bytes shown are fetched.">Load sample</button>
+            <div class="small muted" id="t-info"></div>
+          </div>
+
+          <h4 data-tip="How the weights are stored after quantization.">Format<i class="tip-i">?</i></h4>
+          <label class="field" data-tip="The number format to simulate.&#10;INT = whole numbers times a scale. FP8 / FP4 = tiny floating-point numbers times a scale. NF4 = 16 fixed levels shaped like a bell curve. FP16 / BF16 = plain 16-bit floats."><span>Format<i class="tip-i">?</i></span>
+            <select id="q-format">
+              <optgroup label="Integer"><option value="int8">INT8</option><option value="int6">INT6</option><option value="int4" selected>INT4</option><option value="int3">INT3</option><option value="int2">INT2</option></optgroup>
+              <optgroup label="Float"><option value="fp8_e4m3">FP8 E4M3</option><option value="fp8_e5m2">FP8 E5M2</option><option value="fp4_e2m1">FP4 E2M1</option><option value="nf4">NF4 (bitsandbytes)</option></optgroup>
+              <optgroup label="16-bit"><option value="fp16">FP16</option><option value="bf16">BF16</option></optgroup>
+            </select></label>
+          <div class="seg" id="q-sym-row" data-tip="Symmetric: the range is centred on zero (−max … +max). One number (the scale) per group.&#10;Asymmetric: the range goes from the group's own minimum to maximum, using a zero-point as well. Better for lopsided data, costs a few extra bits per group.">
+            <label><input type="radio" name="sym" value="1" checked /> Symmetric</label>
+            <label><input type="radio" name="sym" value="0" /> Asymmetric</label>
+          </div>
+          <label class="field" data-tip="How many weights share one scale.&#10;• Per tensor: one scale for the whole matrix — smallest, but one outlier ruins it for everyone.&#10;• Per channel: one scale per row (output channel).&#10;• Per group: one scale for every 32 / 64 / 128 / 256 weights in a row. Smaller groups = less error, more bits.&#10;• No scale: plain cast (float formats only)."><span>Scale shared by<i class="tip-i">?</i></span>
+            <select id="q-gran">
+              <option value="tensor">Per tensor</option><option value="channel">Per channel (rows)</option>
+              <option value="g32">Group of 32</option><option value="g64">Group of 64</option><option value="g128" selected>Group of 128</option><option value="g256">Group of 256</option>
+              <option value="none">No scale (direct cast)</option>
+            </select></label>
+          <label class="field" data-tip="The number type the scales themselves are stored in. FP16 (2 bytes) is the norm; FP32 (4 bytes) is slightly more precise and costs more bits per weight."><span>Scale stored as<i class="tip-i">?</i></span>
+            <select id="q-sdt"><option value="fp16">FP16</option><option value="fp32">FP32</option></select></label>
+          <label class="field" data-tip="Clipping: deliberately cut off the largest values so the scale gets smaller and the other weights get finer steps.&#10;• None: the scale fits the largest value.&#10;• Percentile: cut at e.g. the 99.9th percentile of |w| for the whole tensor.&#10;• Auto: for each group, try clip levels from 100% down to 43% of the max and keep the one with the lowest error."><span>Clipping<i class="tip-i">?</i></span>
+            <select id="q-clip"><option value="none">None</option><option value="percentile">Percentile</option><option value="auto">Auto (lowest error)</option></select></label>
+          <label class="field" id="q-pct-row" hidden data-tip="Values above this percentile of |w| are clipped (cut) to it.&#10;99.9% = the largest 0.1% of weights get cut."><span>Clip at percentile <i id="o-pct"></i><i class="tip-i">?</i></span><input id="q-pct" type="range" min="99" max="99.99" step="0.01" value="99.9" /></label>
+          <label class="toggle small" id="q-full-row" data-tip="Symmetric INT normally uses −7…+7 for INT4 (15 levels) so zero sits in the middle.&#10;Full range also uses −8 (16 levels), like llama.cpp's Q4_0. The scale is then max ÷ 8."><input type="checkbox" id="q-full" /> Full integer range (−8…7 for INT4)</label>
+        </aside>
+
+        <div class="charts" id="charts">
+          <figure class="chart" data-chart="hist"><figcaption><span data-tip="A. How many weights have each value (bars), with the values the format can store drawn as vertical lines.&#10;&#10;What to look for: if most bars sit between just two or three lines, most weights are being squeezed into very few values.&#10;Red shaded areas = clipped (values cut off).&#10;With per-group scales each group has its own lines; a typical group (median scale) is drawn.">A · Weights &amp; quantization levels<i class="tip-i">?</i></span><span class="chart-tools"><label class="toggle small" data-tip="Use a log scale for the counts so rare values (outliers) are visible."><input type="checkbox" data-log="hist" checked /> log</label><button class="mini" data-png="hist" data-tip="Download this chart as a PNG image.">PNG</button></span></figcaption><canvas></canvas></figure>
+          <figure class="chart" data-chart="stair"><figcaption><span data-tip="B. Each dot is one weight: original value (across) vs stored value (up). Up to 5,000 dots.&#10;&#10;What to look for: a perfect format would give a straight diagonal. Wide flat steps = many different weights become the same value. Flat ends = clipping.">B · Original vs quantized (staircase)<i class="tip-i">?</i></span><span class="chart-tools"><button class="mini" data-png="stair" data-tip="Download this chart as a PNG image.">PNG</button></span></figcaption><canvas></canvas></figure>
+          <figure class="chart" data-chart="err"><figcaption><span data-tip="C. How big the rounding errors are (original − quantized).&#10;&#10;What to look for: a narrow, even bump around zero is good. Long tails mean some weights are badly damaged (often clipping).">C · Error histogram<i class="tip-i">?</i></span><span class="chart-tools"><label class="toggle small" data-tip="Use a log scale for the counts so rare large errors are visible."><input type="checkbox" data-log="err" checked /> log</label><button class="mini" data-png="err" data-tip="Download this chart as a PNG image.">PNG</button></span></figcaption><canvas></canvas></figure>
+          <figure class="chart" data-chart="clip"><figcaption><span data-tip="E. What happens if you clip (cut) the largest values before quantizing, from 100% of the max down to 20%.&#10;&#10;What to look for: the lowest point of the curve is the best clip level (green). If it is well below 100%, clipping helps — try Clipping: Auto.">E · Clipping trade-off<i class="tip-i">?</i></span><span class="chart-tools"><button class="mini" data-png="clip" data-tip="Download this chart as a PNG image.">PNG</button></span></figcaption><canvas></canvas></figure>
+          <figure class="chart wide" data-chart="cmp"><figcaption><span data-tip="D. Every format run on the same weights: precision (SQNR, up = better) vs storage cost (bits per weight, left = smaller).&#10;&#10;What to look for: points towards the top-left are the best deals. Your current setting is the blue ring. Each +1 bit should buy about +6 dB.">D · All formats compared on these weights<i class="tip-i">?</i></span><span class="chart-tools"><button class="mini" data-png="cmp" data-tip="Download this chart as a PNG image.">PNG</button></span></figcaption><canvas></canvas></figure>
+          <figure class="chart wide" data-chart="heat"><figcaption><span data-tip="F. A 32 × 32 patch of the weight matrix around its largest weight: original, quantized, and the error.&#10;Blue = negative, red = positive, white = zero.&#10;&#10;Hover any square to see exactly how that weight is stored in bits (the bit inspector below).">F · 32 × 32 slice: original · quantized · error<i class="tip-i">?</i></span><span class="chart-tools"><button class="mini" data-png="heat" data-tip="Download this chart as a PNG image.">PNG</button></span></figcaption><canvas></canvas>
+            <div class="bit-inspector" id="bit-inspector" data-tip="The bit inspector: hover a square in the heatmap above to see how that one weight is stored.">Hover a square to inspect how that weight is stored in bits.</div></figure>
+        </div>
+
+        <aside class="results" id="results"></aside>
+      </div>
+    </section>
+
+    <!-- ---------- Layer scan ---------- -->
+    <section class="card-panel" id="scan">
+      <div class="panel-title">
+        <h2 data-tip="Check every weight matrix of the model and find the ones that suffer most from 4-bit quantization.&#10;A small sample of each tensor is read (never the whole model), quantized to INT4 group 128 and FP8, and ranked.&#10;Then you get a mixed-precision plan: keep the most sensitive layers in INT8, everything else in INT4.">3 · Layer sensitivity scan<i class="tip-i">?</i></h2>
+      </div>
+      <div id="scan-body"></div>
+    </section>
+  </section>
+
+  <!-- ================= DOCS ================= -->
+  <section id="about" class="docs">
+    <div class="docs-inner">
+      <h2>What is this tool for?</h2>
+      <p class="lead">
+        Open-weight LLMs come in many compressed (<strong>quantized</strong>) versions: FP8, INT8, GPTQ, AWQ, NF4 and a dozen GGUF levels.
+        This planner answers the practical question: <em>which version should I run, how big is it, does it fit my GPU, how much precision do I lose — and why?</em>
+      </p>
+      <div class="cards">
+        <div class="card"><div class="card-icon" style="background:#2563eb">1</div><h3>Load any open model</h3><p>By Hugging Face ID, a file on your computer, a direct link, your local Ollama / LM Studio server, a pasted config.json or just “70B”. Parameter counts are read exactly from the weight files when possible.</p></div>
+        <div class="card"><div class="card-icon" style="background:#0d9488">2</div><h3>Size &amp; GPU fit</h3><p>See the size of every common format side by side and which GPUs each one fits on — and the ready-made quantized versions that already exist on Hugging Face.</p></div>
+        <div class="card"><div class="card-icon" style="background:#dc2626">3</div><h3>Measure precision loss</h3><p>Quantize generated or <em>real</em> weights from the model and see the damage: SQNR, error histograms, how many levels are used, and what clipping or smaller groups would fix.</p></div>
+        <div class="card"><div class="card-icon" style="background:#7c3aed">4</div><h3>Find sensitive layers</h3><p>Scan every weight matrix, rank them by how much 4-bit quantization hurts, and get a mixed-precision plan with its exact size.</p></div>
+        <div class="card"><div class="card-icon" style="background:#d97706">5</div><h3>Learn the maths</h3><p>Every number has a hover explanation with the formula and your actual values. A bit inspector shows how each weight is stored, bit by bit.</p></div>
+        <div class="card"><div class="card-icon" style="background:#db2777">6</div><h3>Private &amp; free</h3><p>Everything runs in your browser. Files stay on your device, tokens stay in memory, and only small slices of weight files are ever read.</p></div>
+      </div>
+      <h3>What this tool does <u>not</u> do</h3>
+      <ul class="not-list">
+        <li><b>It does not run the model or measure answer quality.</b> Weight error is a strong hint, not proof. Always check a quantized model on your own tasks (or a benchmark like perplexity / MMLU) before relying on it.</li>
+        <li><b>It does not quantize or download the full model.</b> To actually produce a quantized model use AutoAWQ, GPTQModel / AutoGPTQ, bitsandbytes, llm-compressor or llama.cpp's <code>llama-quantize</code>.</li>
+        <li><b>It does not support API-only models</b> (GPT-4, Claude, Gemini…): their weights are not public.</li>
+        <li><b>Memory for the KV cache and activations is not included</b> in the GPU-fit check. Long contexts and big batches need a lot more than the weights alone.</li>
+        <li>Real GPTQ / AWQ methods also use calibration data to pick their rounding; this tool simulates plain round-to-nearest, so real GPTQ / AWQ results are usually <em>somewhat better</em> than shown.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="howto" class="docs alt">
+    <div class="docs-inner">
+      <h2>How to use this tool</h2>
+      <ol class="steps">
+        <li><strong>Load a model.</strong> Paste a Hugging Face ID such as <code>Qwen/Qwen2.5-7B-Instruct</code> into the quick-start box and press <em>Import</em>. For gated models (Llama, Gemma) add your token, or paste the model's config.json instead.</li>
+        <li><strong>Read the overview.</strong> Check the parameter count and where it came from (“exact, from safetensors headers” beats “estimated from config.json”).</li>
+        <li><strong>Pick a size.</strong> In the size table, find the formats that fit your GPU. Move the <em>usable memory</em> slider to leave room for the KV cache.</li>
+        <li><strong>Check ready-made versions.</strong> If someone already published the format you want, use it — no need to quantize yourself.</li>
+        <li><strong>Measure the precision loss.</strong> In the explorer, choose <em>Real layer</em>, pick a big matrix (e.g. <code>layers.0.mlp.down_proj</code>) and load a sample. Switch formats and group sizes and watch SQNR and the charts. Generated weights work without any model.</li>
+        <li><strong>Scan all layers</strong> (Hugging Face or local files) to find the most sensitive tensors and get a mixed-precision plan.</li>
+        <li><strong>Share or export.</strong> Copy a link to the exact setup, download the report and charts, or copy a plain-text summary to paste into an AI assistant.</li>
+      </ol>
+      <h3>Reading SQNR (rough guide)</h3>
+      <table class="shortcuts">
+        <tr><td>Above 30 dB</td><td>Error is tiny — practically the same weights. INT8 and FP8 usually land at 31–41 dB.</td></tr>
+        <tr><td>20 – 30 dB</td><td>Small error: 5–6 bit formats, or 4-bit with small groups on well-behaved layers.</td></tr>
+        <tr><td>12 – 20 dB</td><td>Moderate — typical 4-bit territory. INT4 group 128 measured 15–19 dB on every layer of Qwen3-8B. Large models usually cope well; small models suffer more.</td></tr>
+        <tr><td>Below 12 dB</td><td>Heavy damage. Expect quality loss; try smaller groups, clipping or more bits.</td></tr>
+      </table>
+      <p class="small muted">These bands are a rule of thumb for the weights alone, not a promise about answer quality.</p>
+    </div>
+  </section>
+
+  <section id="maths" class="docs">
+    <div class="docs-inner">
+      <h2>How the maths works</h2>
+      <div class="model-grid">
+        <div>
+          <h3>Integer quantization</h3>
+          <ul>
+            <li><b>Symmetric:</b> <code>qmax = 2^(b−1) − 1</code>, <code>scale = clipMax ÷ qmax</code>, <code>q = clamp(round(w ÷ scale), −qmax, qmax)</code>, stored value <code>w′ = q × scale</code>.</li>
+            <li><b>Asymmetric:</b> <code>scale = (max − min) ÷ (2^b − 1)</code>, <code>zp = round(−min ÷ scale)</code>, <code>q = clamp(round(w ÷ scale) + zp, 0, 2^b − 1)</code>, <code>w′ = (q − zp) × scale</code>.</li>
+            <li>Rounding is round-half-to-even. Scales are rounded to FP16 (or FP32) because that's how they are stored.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Float formats (FP16, BF16, FP8, FP4)</h3>
+          <ul>
+            <li>One generic rounding function: <code>e = max(floor(log2|x|), 1 − bias)</code>, <code>step = 2^(e − mantissaBits)</code>, <code>r = roundHalfEven(|x| ÷ step) × step</code>, saturating at the format's max.</li>
+            <li>FP16 (5e/10m, max 65504) · BF16 (8e/7m) · FP8 E4M3 (bias 7, max 448) · FP8 E5M2 (max 57344) · FP4 E2M1 (±0, 0.5, 1, 1.5, 2, 3, 4, 6).</li>
+            <li>FP8 / FP4 use a scale = absmax ÷ format max. Verified bit-for-bit against PyTorch.</li>
+            <li><b>NF4:</b> divide each group of 64 by its absmax and snap to the nearest of 16 fixed levels from bitsandbytes.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Memory</h3>
+          <ul>
+            <li><code>effective bits = b + scaleBits ÷ groupSize (+ zeroPointBits ÷ groupSize if asymmetric)</code>. INT4 group 128 with FP16 scales = 4 + 16/128 = <b>4.125 bits</b>.</li>
+            <li><code>size (GB) = parameters × effective bits ÷ 8 ÷ 10⁹</code>.</li>
+            <li>GGUF sizes use bits-per-weight measured by llama.cpp on Llama-3.1-8B (approximate for other models).</li>
+            <li><b>Fits</b> = weights ≤ usable share (default 85%) of the GPU's memory. GPU sizes are in GiB as sold (a “24 GB” card holds 25.8 × 10⁹ bytes).</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Metrics</h3>
+          <ul>
+            <li><b>SQNR</b> = <code>10 · log10(Σw² ÷ Σ(w − w′)²)</code> dB — signal power over error power. Each extra bit adds ≈ 6 dB.</li>
+            <li><b>MSE / RMSE</b>: average squared error and its square root. <b>Max error</b>: the single worst weight.</li>
+            <li><b>Cosine similarity</b>: how closely the quantized matrix points in the same direction as the original (1 = identical).</li>
+            <li><b>Clipped</b>: weights outside the clip range. <b>Zeroed</b>: non-zero weights that became exactly 0. <b>Levels used</b>: how many of the format's values actually appear.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Parameter counts</h3>
+          <ul>
+            <li>Preferred, exact: Hugging Face's safetensors count, then the safetensors headers (sum of shape products), then a GGUF header.</li>
+            <li>Packed GPTQ / AWQ tensors (<code>qweight</code>) hold 8 four-bit values per int32; they are unpacked, and <code>scales</code>, <code>qzeros</code>, <code>g_idx</code> are not counted.</li>
+            <li>From config.json (Llama-style): attention <code>H·H + 2·H·(kv·head_dim) + H·H</code>, gated MLP <code>3·H·I</code>, norms, embeddings (+ output head unless tied). MoE counts all experts (total) and only the routed ones per token (active).</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Real weights &amp; safety limits</h3>
+          <ul>
+            <li>Only headers and small slices are read (HTTP Range requests or <code>File.slice()</code>). A sample is several evenly spaced blocks of whole rows.</li>
+            <li>Limits: at most 1,048,576 values per tensor, 4 parallel requests, and you are asked before any scan above 100 MB. Everything can be cancelled.</li>
+            <li>All calculations run in a background Web Worker, so the page never freezes.</li>
+          </ul>
+        </div>
+      </div>
+      <h3>Bit inspector</h3>
+      <div class="bit-lab" id="bit-lab"></div>
+    </div>
+  </section>
+
+  <section id="glossary" class="docs alt">
+    <div class="docs-inner">
+      <h2>Glossary</h2>
+      <dl class="glossary" id="glossary-list"></dl>
+    </div>
+  </section>
+
+  <footer class="footer">Model Quantization Planner · Runs Entirely In Your Browser · Files Stay On Your Device, Nothing Is Uploaded.</footer>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head"><h3 id="modal-title"></h3><button class="icon-btn" id="modal-close" aria-label="Close">✕</button></div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="chart-tip" class="chart-tip"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
