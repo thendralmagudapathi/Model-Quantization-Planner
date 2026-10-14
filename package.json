@@ -1,0 +1,12 @@
+{
+  "name": "model-quantization-planner",
+  "version": "1.0.0",
+  "description": "Pick the right quantized version of an open-weight LLM: size of every format, GPU fit, and measured precision loss — privately in the browser.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
