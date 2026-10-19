@@ -1,5 +1,5 @@
 # Model Quantization Planner
-
+### Access at: https://thendralmagudapathi.com/tools/quantization-planner
 A browser-only tool that answers: **"Which compressed (quantized) version of this open-weight LLM should I run, how big is
 it, does it fit my GPU, how much precision do I lose — and why?"**
 
